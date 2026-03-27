@@ -15,12 +15,26 @@ let storageSetting = multer.diskStorage({
 let filterImage = function (req, file, cb) {
     if (file.mimetype.startsWith('image')) {
         cb(null, true)
-    }else{
+    } else {
         cb(new Error("file dinh dang khong dung"))
     }
 }
-module.exports = multer({
-    storage: storageSetting,
-    limits: 5 * 1024 * 1024,
-    fileFilter:filterImage
-})
+let filterExcel = function (req, file, cb) {
+    if (file.mimetype.includes('spreadsheetml')) {
+        cb(null, true)
+    } else {
+        cb(new Error("file dinh dang khong dung"))
+    }
+}
+module.exports = {
+    uploadImage: multer({
+        storage: storageSetting,
+        limits: 5 * 1024 * 1024,
+        fileFilter: filterImage
+    }),
+    uploadExcel: multer({
+        storage: storageSetting,
+        limits: 5 * 1024 * 1024,
+        fileFilter: filterExcel
+    })
+}

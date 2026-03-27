@@ -2,6 +2,11 @@ let mongoose = require('mongoose');
 
 let productSchema = mongoose.Schema(
     {
+        sku: {
+            type: String,
+            required: true,
+            unique: true
+        },
         title: {
             type: String,
             required: true,
@@ -22,16 +27,16 @@ let productSchema = mongoose.Schema(
         },
         category: {
             type: mongoose.Types.ObjectId,
-            ref:'category',
+            ref: 'category',
             required: true
         },
         images: {
             type: [String],
             default: ["https://smithcodistributing.com/wp-content/themes/hello-elementor/assets/default_product.png"]
         },
-        isDeleted:{
-            type:Boolean,
-            default:false
+        isDeleted: {
+            type: Boolean,
+            default: false
         }
     }, {
     timestamps: true
