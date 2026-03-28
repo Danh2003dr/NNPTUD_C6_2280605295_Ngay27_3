@@ -1,11 +1,42 @@
 var express = require("express");
 var router = express.Router();
+var fs = require("fs");
 let { checkLogin, CheckPermission } = require('../utils/authHandler')
 let { userCreateValidator
     , userUpdateValidator
     , handleResultValidator } = require('../utils/validatorHandler')
 let userController = require("../controllers/users");
+let userModel = require("../schemas/users");
+let { uploadCsv } = require("../utils/upload");
+let { importUsersFromCsvBuffer } = require("../utils/userCsvImport");
+let { sendCredentialsMail } = require("../utils/senMailHandler");
 
+router.post(
+    "/import",
+    checkLogin,
+    CheckPermission("ADMIN"),
+    uploadCsv.single("file"),
+    async function (req, res, next) {
+        if (!req.file) {
+            return res.status(400).send({ message: "Thieu file CSV (field: file)" });
+        }
+        try {
+            const buf = fs.readFileSync(req.file.path);
+            const result = await importUsersFromCsvBuffer(buf, sendCredentialsMail);
+            try {
+                fs.unlinkSync(req.file.path);
+            } catch (unlinkErr) { /* ignore */ }
+            return res.status(result.ok ? 200 : 400).send(result);
+        } catch (e) {
+            if (req.file && fs.existsSync(req.file.path)) {
+                try {
+                    fs.unlinkSync(req.file.path);
+                } catch (unlinkErr) { /* ignore */ }
+            }
+            return res.status(500).send({ message: e.message });
+        }
+    }
+);
 
 router.get("/", checkLogin, CheckPermission("ADMIN")
     , async function (req, res, next) {

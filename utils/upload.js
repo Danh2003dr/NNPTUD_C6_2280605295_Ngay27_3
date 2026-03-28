@@ -26,6 +26,19 @@ let filterExcel = function (req, file, cb) {
         cb(new Error("file dinh dang khong dung"))
     }
 }
+let filterCsv = function (req, file, cb) {
+    let nameOk = file.originalname && file.originalname.toLowerCase().endsWith('.csv')
+    let mimeOk =
+        file.mimetype === 'text/csv' ||
+        file.mimetype === 'application/csv' ||
+        file.mimetype === 'text/plain' ||
+        file.mimetype === 'application/vnd.ms-excel'
+    if (nameOk || mimeOk) {
+        cb(null, true)
+    } else {
+        cb(new Error("Chi chap nhan file .csv"))
+    }
+}
 module.exports = {
     uploadImage: multer({
         storage: storageSetting,
@@ -36,5 +49,10 @@ module.exports = {
         storage: storageSetting,
         limits: 5 * 1024 * 1024,
         fileFilter: filterExcel
+    }),
+    uploadCsv: multer({
+        storage: storageSetting,
+        limits: 2 * 1024 * 1024,
+        fileFilter: filterCsv
     })
 }
