@@ -46,6 +46,32 @@ function parseUserCsv(text) {
     return { rows };
 }
 
+/** ExcelJS: ô có thể là chuỗi, số, hyperlink { text, hyperlink }, richText, công thức { result }… */
+function excelCellToString(val) {
+    if (val == null) return "";
+    if (typeof val === "string" || typeof val === "number" || typeof val === "boolean") {
+        return String(val).trim();
+    }
+    if (val instanceof Date) {
+        return val.toISOString().trim();
+    }
+    if (typeof val === "object") {
+        if (Array.isArray(val.richText)) {
+            return val.richText.map((p) => (p && p.text) || "").join("").trim();
+        }
+        if (val.text != null) {
+            return String(val.text).trim();
+        }
+        if (val.hyperlink != null) {
+            return String(val.hyperlink).trim();
+        }
+        if (Object.prototype.hasOwnProperty.call(val, "result")) {
+            return excelCellToString(val.result);
+        }
+    }
+    return String(val).trim();
+}
+
 /**
  * Sheet đầu tiên: hàng 1 là header username | email (không phân biệt hoa thường).
  */
@@ -62,13 +88,7 @@ async function parseUserExcel(buffer) {
         const header = [];
         for (let c = 1; c <= maxCol; c++) {
             const v = headerRow.getCell(c).value;
-            const text =
-                v == null
-                    ? ""
-                    : typeof v === "object" && v.text != null
-                      ? String(v.text)
-                      : String(v);
-            header.push(text.trim().toLowerCase());
+            header.push(excelCellToString(v).toLowerCase());
         }
         const iu = header.indexOf("username");
         const ie = header.indexOf("email");
@@ -83,15 +103,8 @@ async function parseUserExcel(buffer) {
         const rows = [];
         for (let r = 2; r <= sheet.rowCount; r++) {
             const row = sheet.getRow(r);
-            let u = row.getCell(colU).value;
-            let e = row.getCell(colE).value;
-            const cellStr = (val) => {
-                if (val == null) return "";
-                if (typeof val === "object" && val.text != null) return String(val.text).trim();
-                return String(val).trim();
-            };
-            u = cellStr(u);
-            e = cellStr(e).toLowerCase();
+            let u = excelCellToString(row.getCell(colU).value);
+            let e = excelCellToString(row.getCell(colE).value).toLowerCase();
             if (!u && !e) continue;
             rows.push({ username: u, email: e });
         }
@@ -236,5 +249,6 @@ module.exports = {
     importUsersFromCsvBuffer,
     parseUserCsv,
     parseUserExcel,
+    excelCellToString,
     randomPassword16,
 };
