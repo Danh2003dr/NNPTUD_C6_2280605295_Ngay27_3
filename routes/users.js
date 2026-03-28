@@ -7,22 +7,26 @@ let { userCreateValidator
     , handleResultValidator } = require('../utils/validatorHandler')
 let userController = require("../controllers/users");
 let userModel = require("../schemas/users");
-let { uploadCsv } = require("../utils/upload");
-let { importUsersFromCsvBuffer } = require("../utils/userCsvImport");
+let { uploadUserImport } = require("../utils/upload");
+let { importUsersFromBuffer } = require("../utils/userCsvImport");
 let { sendCredentialsMail } = require("../utils/senMailHandler");
 
 router.post(
     "/import",
     checkLogin,
     CheckPermission("ADMIN"),
-    uploadCsv.single("file"),
+    uploadUserImport.single("file"),
     async function (req, res, next) {
         if (!req.file) {
-            return res.status(400).send({ message: "Thieu file CSV (field: file)" });
+            return res.status(400).send({ message: "Thieu file CSV hoac Excel .xlsx (field: file)" });
         }
         try {
             const buf = fs.readFileSync(req.file.path);
-            const result = await importUsersFromCsvBuffer(buf, sendCredentialsMail);
+            const result = await importUsersFromBuffer(
+                buf,
+                req.file.originalname,
+                sendCredentialsMail
+            );
             try {
                 fs.unlinkSync(req.file.path);
             } catch (unlinkErr) { /* ignore */ }

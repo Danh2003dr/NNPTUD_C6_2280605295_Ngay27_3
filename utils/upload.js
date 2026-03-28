@@ -39,6 +39,23 @@ let filterCsv = function (req, file, cb) {
         cb(new Error("Chi chap nhan file .csv"))
     }
 }
+/** CSV hoac Excel .xlsx cho import user */
+let filterUserImport = function (req, file, cb) {
+    let n = (file.originalname || '').toLowerCase()
+    let csvOk = n.endsWith('.csv')
+    let xlsxOk = n.endsWith('.xlsx')
+    let mimeCsv =
+        file.mimetype === 'text/csv' ||
+        file.mimetype === 'application/csv' ||
+        file.mimetype === 'text/plain'
+    let mimeXlsx =
+        file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    if (csvOk || xlsxOk || mimeCsv || mimeXlsx) {
+        cb(null, true)
+    } else {
+        cb(new Error("Chi chap nhan file .csv hoac .xlsx"))
+    }
+}
 module.exports = {
     uploadImage: multer({
         storage: storageSetting,
@@ -54,5 +71,10 @@ module.exports = {
         storage: storageSetting,
         limits: 2 * 1024 * 1024,
         fileFilter: filterCsv
+    }),
+    uploadUserImport: multer({
+        storage: storageSetting,
+        limits: 5 * 1024 * 1024,
+        fileFilter: filterUserImport
     })
 }

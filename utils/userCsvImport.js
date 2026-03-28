@@ -1,4 +1,6 @@
+const path = require("path");
 const crypto = require("crypto");
+const ExcelJS = require("exceljs");
 const mongoose = require("mongoose");
 const roleModel = require("../schemas/roles");
 const cartSchema = require("../schemas/carts");
@@ -45,16 +47,64 @@ function parseUserCsv(text) {
 }
 
 /**
- * @param {Buffer} buffer — nội dung file CSV (UTF-8)
- * @param {(to: string, username: string, plainPassword: string) => Promise<void>} sendCredentialsMail
+ * Sheet đầu tiên: hàng 1 là header username | email (không phân biệt hoa thường).
  */
-async function importUsersFromCsvBuffer(buffer, sendCredentialsMail) {
-    const text = buffer.toString("utf8");
-    const parsed = parseUserCsv(text);
-    if (parsed.error) {
-        return { ok: false, message: parsed.error, results: [] };
+async function parseUserExcel(buffer) {
+    try {
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(buffer);
+        const sheet = workbook.worksheets[0];
+        if (!sheet) {
+            return { rows: [], error: "File Excel không có sheet" };
+        }
+        const headerRow = sheet.getRow(1);
+        const maxCol = Math.max(headerRow.cellCount, sheet.columnCount || 0, 10);
+        const header = [];
+        for (let c = 1; c <= maxCol; c++) {
+            const v = headerRow.getCell(c).value;
+            const text =
+                v == null
+                    ? ""
+                    : typeof v === "object" && v.text != null
+                      ? String(v.text)
+                      : String(v);
+            header.push(text.trim().toLowerCase());
+        }
+        const iu = header.indexOf("username");
+        const ie = header.indexOf("email");
+        if (iu === -1 || ie === -1) {
+            return {
+                rows: [],
+                error: 'Hàng đầu phải có cột "username" và "email"',
+            };
+        }
+        const colU = iu + 1;
+        const colE = ie + 1;
+        const rows = [];
+        for (let r = 2; r <= sheet.rowCount; r++) {
+            const row = sheet.getRow(r);
+            let u = row.getCell(colU).value;
+            let e = row.getCell(colE).value;
+            const cellStr = (val) => {
+                if (val == null) return "";
+                if (typeof val === "object" && val.text != null) return String(val.text).trim();
+                return String(val).trim();
+            };
+            u = cellStr(u);
+            e = cellStr(e).toLowerCase();
+            if (!u && !e) continue;
+            rows.push({ username: u, email: e });
+        }
+        if (rows.length === 0) {
+            return { rows: [], error: "Không có dòng dữ liệu nào sau header" };
+        }
+        return { rows };
+    } catch (e) {
+        return { rows: [], error: "Không đọc được file Excel (.xlsx): " + e.message };
     }
+}
 
+async function importParsedRows(parsedRows, sendCredentialsMail) {
     const userRole = await roleModel.findOne({
         name: { $regex: /^user$/i },
         isDeleted: false,
@@ -69,7 +119,7 @@ async function importUsersFromCsvBuffer(buffer, sendCredentialsMail) {
 
     const results = [];
 
-    for (const row of parsed.rows) {
+    for (const row of parsedRows) {
         if (!row.username || !row.email) {
             results.push({
                 username: row.username,
@@ -149,8 +199,42 @@ async function importUsersFromCsvBuffer(buffer, sendCredentialsMail) {
     return { ok: true, results };
 }
 
+/**
+ * @param {Buffer} buffer
+ * @param {string} originalname — tên file gốc (đuôi .csv hoặc .xlsx)
+ */
+async function importUsersFromBuffer(buffer, originalname, sendCredentialsMail) {
+    const ext = path.extname(originalname || "").toLowerCase();
+    let parsed;
+
+    if (ext === ".xlsx") {
+        parsed = await parseUserExcel(buffer);
+    } else if (ext === ".csv" || ext === "" || ext === ".txt") {
+        parsed = parseUserCsv(buffer.toString("utf8"));
+    } else {
+        return {
+            ok: false,
+            message: "Chỉ hỗ trợ file .csv hoặc .xlsx (Excel)",
+            results: [],
+        };
+    }
+
+    if (parsed.error) {
+        return { ok: false, message: parsed.error, results: [] };
+    }
+
+    return importParsedRows(parsed.rows, sendCredentialsMail);
+}
+
+/** Giữ tương thích code cũ */
+async function importUsersFromCsvBuffer(buffer, sendCredentialsMail) {
+    return importUsersFromBuffer(buffer, "import.csv", sendCredentialsMail);
+}
+
 module.exports = {
+    importUsersFromBuffer,
     importUsersFromCsvBuffer,
     parseUserCsv,
+    parseUserExcel,
     randomPassword16,
 };
