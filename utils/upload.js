@@ -44,13 +44,16 @@ let filterUserImport = function (req, file, cb) {
     let n = (file.originalname || '').toLowerCase()
     let csvOk = n.endsWith('.csv')
     let xlsxOk = n.endsWith('.xlsx')
+    let mime = file.mimetype || ''
     let mimeCsv =
-        file.mimetype === 'text/csv' ||
-        file.mimetype === 'application/csv' ||
-        file.mimetype === 'text/plain'
+        mime === 'text/csv' ||
+        mime === 'application/csv' ||
+        mime === 'text/plain'
     let mimeXlsx =
-        file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    if (csvOk || xlsxOk || mimeCsv || mimeXlsx) {
+        mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        (mime.includes && mime.includes('spreadsheetml'))
+    let mimeBin = mime === 'application/octet-stream'
+    if (csvOk || xlsxOk || mimeCsv || mimeXlsx || (mimeBin && (csvOk || xlsxOk))) {
         cb(null, true)
     } else {
         cb(new Error("Chi chap nhan file .csv hoac .xlsx"))
