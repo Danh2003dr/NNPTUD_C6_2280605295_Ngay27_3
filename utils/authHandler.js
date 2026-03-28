@@ -6,27 +6,29 @@ module.exports = {
         if (req.cookies.token_login_tungNT) {
             token = req.cookies.token_login_tungNT
         } else {
-            token = req.headers.authorization;
-            if (!token || !token.startsWith("Bearer")) {
-                res.status(403).send("ban chua dang nhap");
+            let auth = req.headers.authorization;
+            if (!auth || !auth.startsWith("Bearer")) {
+                return res.status(403).send("ban chua dang nhap");
             }
-            token = token.split(" ")[1];
+            token = auth.split(" ")[1];
+            if (!token) {
+                return res.status(403).send("ban chua dang nhap");
+            }
         }
         try {//private - public
             let result = jwt.verify(token, "secret")
             if (result.exp * 1000 > Date.now()) {
                 let user = await userController.FindById(result.id)
                 if (!user) {
-                    res.status(403).send("ban chua dang nhap");
-                } else {
-                    req.user = user;
-                    next()
+                    return res.status(403).send("ban chua dang nhap");
                 }
+                req.user = user;
+                return next()
             } else {
-                res.status(403).send("ban chua dang nhap");
+                return res.status(403).send("ban chua dang nhap");
             }
         } catch (error) {
-            res.status(403).send("ban chua dang nhap");
+            return res.status(403).send("ban chua dang nhap");
         }
 
     },
